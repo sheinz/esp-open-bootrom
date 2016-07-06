@@ -5,12 +5,12 @@
 #include "espressif/spi_flash.h"
 
 
-uint32_t Wait_SPI_Idle(sdk_flashchip_t *flashchip);
-uint32_t SPI_write_enable(sdk_flashchip_t *flashchip);
-uint32_t SPI_read_status(sdk_flashchip_t *flashchip, uint32_t *status);
+uint32_t IRAM Wait_SPI_Idle(sdk_flashchip_t *flashchip);
+uint32_t IRAM SPI_write_enable(sdk_flashchip_t *flashchip);
+uint32_t IRAM SPI_read_status(sdk_flashchip_t *flashchip, uint32_t *status);
 
 
-uint32_t SPI_page_program(sdk_flashchip_t *flashchip, uint32_t dest_addr,
+uint32_t IRAM SPI_page_program(sdk_flashchip_t *flashchip, uint32_t dest_addr,
     uint32_t *buf, uint32_t size)
 {
     if (size & 0b11) {
@@ -18,7 +18,7 @@ uint32_t SPI_page_program(sdk_flashchip_t *flashchip, uint32_t dest_addr,
     }
 
     // check if block to write doesn't cross page boundary
-    if (flashchip->page_size < size + dest_addr % flashchip->page_size) {
+    if (flashchip->page_size < size + (dest_addr % flashchip->page_size)) {
         return 1;
     }
     Wait_SPI_Idle(flashchip);
@@ -43,7 +43,7 @@ uint32_t SPI_page_program(sdk_flashchip_t *flashchip, uint32_t dest_addr,
             return 1;
         }
         SPI(0).CMD = 0x02000000;
-        while (SPI(0).CMD == 0) {}   // wait for reg->cmd to be 0
+        while (SPI(0).CMD) {}   // wait for reg->cmd to be 0
         Wait_SPI_Idle(flashchip); 
         // a0 = 0x00FFFFFF
         if (size < 1) {
@@ -83,14 +83,14 @@ uint32_t SPI_page_program(sdk_flashchip_t *flashchip, uint32_t dest_addr,
     if (SPI_write_enable(flashchip)) {
         return 1;
     }
-    SPI(0).CMD = 0x020000000;
-    while (SPI(0).CMD == 0) {}   // wait for reg->cmd to be 0
+    SPI(0).CMD = 0x02000000;
+    while (SPI(0).CMD) {}   // wait for reg->cmd to be 0
     Wait_SPI_Idle(flashchip); 
     // a0 = 0x00FFFFFF
     return 0;
 }
 
-uint32_t SPI_write_enable(sdk_flashchip_t *flashchip)
+uint32_t IRAM SPI_write_enable(sdk_flashchip_t *flashchip)
 {
     uint32_t local0 = 0; 
 
@@ -107,18 +107,23 @@ uint32_t SPI_write_enable(sdk_flashchip_t *flashchip)
     return 0;
 }
 
-uint32_t SPI_read_status(sdk_flashchip_t *flashchip, uint32_t *status)
+uint32_t IRAM SPI_read_status(sdk_flashchip_t *flashchip, uint32_t *status)
 {
+    uint32_t _status;
+
     do {
         SPI(0).RSTATUS = 0;
         SPI(0).CMD = 0x08000000;
         while (SPI(0).CMD) {}
-    } while ( (SPI(0).RSTATUS & flashchip->status_mask) & 0b1);
+        _status = SPI(0).RSTATUS & flashchip->status_mask;
+    } while ( _status & 0b1);
 
-    return (SPI(0).RSTATUS & flashchip->status_mask); 
+    *status = _status;
+
+    return 0;
 }
 
-uint32_t Wait_SPI_Idle(sdk_flashchip_t *flashchip)
+uint32_t IRAM Wait_SPI_Idle(sdk_flashchip_t *flashchip)
 {
     while (DPORT.SPI_READY & DPORT_SPI_READY_IDLE) {}
     uint32_t a3;
