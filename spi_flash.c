@@ -129,3 +129,68 @@ uint32_t IRAM Wait_SPI_Idle(sdk_flashchip_t *flashchip)
     uint32_t a3;
     return SPI_read_status(flashchip, &a3);
 }
+
+uint32_t IRAM SPI_read_data(sdk_flashchip_t *flashchip, uint32_t addr, 
+        uint32_t *dst, uint32_t size)
+{
+    // a12 = dst
+    if (flashchip->page_size < (addr + size)) {
+        return 1; 
+    }
+
+    // a14 = addr
+    // a13 = size
+    Wait_SPI_Idle(flashchip);
+    if (size < 1) {
+        return 0; 
+    }
+    // SPI(0).CMD
+    while (size >= 32) {
+        // a8 = addr | 0x20000000;
+        SPI(0).ADDR = addr | 0x20000000;
+        SPI(0).CMD = 0x80000000;
+        while (SPI(0).CMD) {};
+        for (uint32_t a2 = 0; a2 < 8; a2++) {
+            dst[a2] = (&(SPI(0).W0))[a2];
+        }
+        size -= 32;
+        addr += 32;
+    }
+
+    if (size >= 1) {
+        // a7 = size << 24;
+        // a7 = addr | a7
+        SPI(0).ADDR = addr | (size << 24);
+        SPI(0).CMD = 0x80000000;
+        while (SPI(0).CMD) {};
+        // a10 = size & 0b11
+        uint8_t a7 = size >> 2;
+        // a9 = a7 + 1
+        if (size & 0b11) {
+           // a7 = a7 + 1 
+           a7++;
+        }
+        // a7 = a7 & 0xFF
+        if (!a7) {
+            return 0;
+        } 
+        uint8_t a2 = 0;
+        if (a7 & 0b1) {
+            a2 = 1;
+            // a11 = SPI(0).W0
+            *dst = SPI(0).W0;
+            dst += 1;
+        }
+        size = a7 >> 1;
+        if (!size) {
+            return 0;
+        }
+        for (; a2 != a7; a2++) {
+            *dst = (&(SPI(0).W0))[a2];
+            dst += 1;
+        }
+    }
+
+    return 0;
+}
+
