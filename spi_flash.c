@@ -34,7 +34,7 @@ uint32_t IRAM SPI_page_program(sdk_flashchip_t *flashchip, uint32_t dest_addr,
         // a4 - loop variable += 4
         // a5 = buf[0]
         for (uint8_t i = 0; i != 8; i++) {
-            (&(SPI(0).W0))[i] = buf[i];
+            SPI(0).W[i] = buf[i];
         }
         size -= 32;
         dest_addr += 32;
@@ -67,7 +67,7 @@ uint32_t IRAM SPI_page_program(sdk_flashchip_t *flashchip, uint32_t dest_addr,
         uint8_t i = 0;
 
         if (words & 0b1) {  // bit 0 is set in a3
-            SPI(0).W0 = buf[0];
+            SPI(0).W[0] = buf[0];
             i++;
         }
         // a6 = a3 >> 1;
@@ -75,7 +75,7 @@ uint32_t IRAM SPI_page_program(sdk_flashchip_t *flashchip, uint32_t dest_addr,
             // a6 =  0x600000200
             // buff[0]
             for (; i != words; i++) {
-                (&(SPI(0).W0))[i] = buf[i];
+                SPI(0).W[i] = buf[i];
             } 
         }
     }
@@ -134,15 +134,15 @@ uint32_t IRAM SPI_read_data(sdk_flashchip_t *flashchip, uint32_t addr,
         uint32_t *dst, uint32_t size)
 {
     // a12 = dst
-    if (flashchip->page_size < (addr + size)) {
-        return 1; 
+    if ((addr + size) > flashchip->chip_size ) {
+        return 1;
     }
 
     // a14 = addr
     // a13 = size
     Wait_SPI_Idle(flashchip);
     if (size < 1) {
-        return 0; 
+        return 0;
     }
     // SPI(0).CMD
     while (size >= 32) {
@@ -151,7 +151,8 @@ uint32_t IRAM SPI_read_data(sdk_flashchip_t *flashchip, uint32_t addr,
         SPI(0).CMD = 0x80000000;
         while (SPI(0).CMD) {};
         for (uint32_t a2 = 0; a2 < 8; a2++) {
-            dst[a2] = (&(SPI(0).W0))[a2];
+            *dst = SPI(0).W[a2];
+            dst += 1;
         }
         size -= 32;
         addr += 32;
@@ -178,7 +179,7 @@ uint32_t IRAM SPI_read_data(sdk_flashchip_t *flashchip, uint32_t addr,
         if (a7 & 0b1) {
             a2 = 1;
             // a11 = SPI(0).W0
-            *dst = SPI(0).W0;
+            *dst = SPI(0).W[0];
             dst += 1;
         }
         size = a7 >> 1;
@@ -186,11 +187,29 @@ uint32_t IRAM SPI_read_data(sdk_flashchip_t *flashchip, uint32_t addr,
             return 0;
         }
         for (; a2 != a7; a2++) {
-            *dst = (&(SPI(0).W0))[a2];
+            *dst = SPI(0).W[a2];
             dst += 1;
         }
     }
 
     return 0;
 }
+
+uint32_t SPI_sector_erase(sdk_flashchip_t *chip, uint32_t addr)
+{
+    // a12 -> addr
+    // a0 = addr & 0xFFF
+    if (addr & 0xFFF) {
+        return 1;
+    }
+
+    Wait_SPI_Idle(chip);
+    SPI(0).ADDR = addr & 0x00FFFFFF;
+    SPI(0).CMD = 0x01000000;
+    while (SPI(0).CMD) {};
+    Wait_SPI_Idle(chip);
+
+    return 0;
+}
+
 

@@ -13,6 +13,8 @@ The C code uses [esp-open-rtos](https://github.com/SuperHouse/esp-open-rtos) fra
 | 0x4000443c | [SPI_write_enable](https://github.com/sheinz/esp-open-bootrom/blob/master/spi_flash.c#L93) | tested |
 | 0x4000448c | [Wait_SPI_Idle](https://github.com/sheinz/esp-open-bootrom/blob/master/spi_flash.c#L126)   | tested |
 | 0x400043c8 | [SPI_read_status](https://github.com/sheinz/esp-open-bootrom/blob/master/spi_flash.c#L110) | tested |
+| 0x400042ac | [SPI_read_data](https://github.com/sheinz/esp-open-bootrom/blob/master/spi_flash.c#L133)   | tested |
+| 0x400040c0 | [SPI_sector_erase](https://github.com/sheinz/esp-open-bootrom/blob/master/spi_flash.c#L198)| tested |
 
 ### Resources
 - [xtobjdis](https://bitbucket.org/foogod/xtobjdis) Xtenas disassembler.
